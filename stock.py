@@ -38,8 +38,8 @@ def pull_list():
 
 def pearson(sampleData, compareData):
     val = val1 = val2 = 0.0
-    sampleAver  = math.sum(sampleData)/len(sampleData)
-    compareAver = math.sum(compareData)/len(compareData)
+    sampleAver  = sum(sampleData)/len(sampleData)
+    compareAver = sum(compareData)/len(compareData)
     for index in range(0,len(sampleData)-1):
       val = val + (sampleData[index]-sampleAver)*(compareData[index]-compareAver)
       val1 = val1 + pow((sampleData[index]-sampleAver),2)
@@ -78,15 +78,15 @@ def showSimilarity(sample, result):
     print "\n---------------------------------\n"
     for index in range(0,len(sample)-1):
       if (index == 0) :
-         print "%+4.3f"%sample[index],
+         print "%4.3f"%sample[index],
          print " >  +0.00  || ", 
-         print "%+4.3f"%(result[index]),
+         print "%4.3f"%(result[index]),
          print " >  +0.00"
       else:
-         print "%+4.3f"%sample[index], " > ", 
+         print "%4.3f"%sample[index], " > ", 
          print "%+1.2f"%((sample[index]-sample[index-1])*100/sample[index-1]),
          print " || ",
-         print "%+4.3f"%(result[index]), " > ", 
+         print "%4.3f"%(result[index]), " > ", 
          print "%+1.2f"%((result[index]-result[index-1])*100/result[index-1])
     print "-----------------------------------\n"
 
@@ -131,6 +131,7 @@ def stockSimilarityByDate(ticker1, ticker2, days, start, Date, mode):
                        similarity = normalCosine(sample, compareData)
                    else:
                        similarity = percentCosineByUser(sample, compareData)
+                   maxSimilarity = similarity
                    break  
                     
             if compareData == []:
@@ -203,12 +204,12 @@ def stockTopSimilarity(ticker_symbol, start, days, n, mode):
                         stockDetail = stock.split(',')
                         compareData.append(float(stockDetail[6]))
                     #similarity = normalCosine(sample, compareData)
-                    #if mode.startswith("pea"):
-                    #similarity = pearson(sample, compareData)
-                    #elif mode.startswith("cos"):
-                    #   similarity = normalCosine(sample, compareData)
-                    #else:
-                    similarity = percentCosineByUser(sample, compareData)
+                    if mode=="pearson":
+                       similarity = pearson(sample, compareData)
+                    elif mode.startswith("cos"):
+                       similarity = normalCosine(sample, compareData)
+                    else:
+                       similarity = percentCosineByUser(sample, compareData)
                     if maxSimilarity < similarity:
                        finalDate = tickerList[startPoint]
                        finalList = compareData
@@ -217,7 +218,7 @@ def stockTopSimilarity(ticker_symbol, start, days, n, mode):
                        maxSimilarity = similarity
                 # with
             except:
-                print "skip",file 
+                # print "skip",file 
                 continue    
         #for file   
     #for root 
