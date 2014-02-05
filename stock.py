@@ -19,6 +19,7 @@ class SimTicker(object):
       self.similarity = similarity
       self.date = date
       self.days = days
+      self.priceList = [] 
 
 def make_url(ticker_symbol):
     return base_url + ticker_symbol+"&f=nd2k2" 
@@ -48,11 +49,33 @@ def pull_list():
             print stock_detail[0];
             pull_historical_data(stock_detail[0]);
 
+def samePosOrNeg(val1, val2):
+    if (val1 >0) and (val2>0) :
+       return 1
+    elif (val1 == 0) and (val2 == 0):
+       return 1
+    elif (val1 < 0) and (val2 < 0):
+       return 1
+    else:
+       return 0
+       
+def zhangdie(sampleData, compareData):
+    totalNum = len(sampleData)
+    sameNum  = 0.0 
+    for index in range(0,len(sampleData)-1):
+        val1 = (sampleData[index] - sampleData[index+1]) 
+        val2 = (compareData[index] - compareData[index+1])
+        if samePosOrNeg(val1, val2) == 1:
+           sameNum = sameNum +1 
+    #print "sameNum:",sameNum, "  totalNum:", totalNum
+    #print "Last value: %f"%(sameNum/(totalNum-1))
+    return (sameNum/(totalNum-1))     
+         
 def pearson(sampleData, compareData):
       val = val1 = val2 = 0.0
       sampleAver  = sum(sampleData)/len(sampleData)
       compareAver = sum(compareData)/len(compareData)
-      for index in range(0,len(sampleData)-1):
+      for index in range(0,len(sampleData)):
         val = val + (sampleData[index]-sampleAver)*(compareData[index]-compareAver)
         val1 = val1 + pow((sampleData[index]-sampleAver),2)
         val2 = val2 + pow((compareData[index]-compareAver),2)
@@ -180,6 +203,8 @@ def stockSimilarityByDate(ticker1, ticker2, days, start, Date, mode):
                        similarity = pearson(sample, compareData)
                    elif mode.startswith("cos"):
                        similarity = normalCosine(sample, compareData)
+                   elif mode.startswith("zhang"):
+                       similarity = zhangdie(sample, compareData)
                    else:
                        similarity = percentCosineByUser(sample, compareData)
                    maxSimilarity = similarity
@@ -197,6 +222,8 @@ def stockSimilarityByDate(ticker1, ticker2, days, start, Date, mode):
                        similarity = pearson(sample, compareData)
                    elif mode.startswith("cos"):
                        similarity = normalCosine(sample, compareData)
+                   elif mode.startswith("zhang"):
+                       similarity = zhangdie(sample, compareData)
                    else:
                        similarity = percentCosineByUser(sample, compareData)
                    if maxSimilarity < similarity:
@@ -233,7 +260,7 @@ def stockTopSimilarity(ticker_symbol, start, days, n, mode):
     simTickerList = []
     with open("/Users/zhangshu/zhangshu/project/stock/data/symbo_percent/" + ticker_symbol + ".csv") as ticketf:
         lines = ticketf.read().splitlines()
-        for stock in lines[start+1: start+days]:
+        for stock in lines[start+1: start+days+1]:
             stock_detail = stock.split(',');
             sample.append(float(stock_detail[6]))
             
@@ -255,27 +282,40 @@ def stockTopSimilarity(ticker_symbol, start, days, n, mode):
                   lines = stockf.read().splitlines()
                   tickerList = lines[1:]
                   listSize = len(tickerList) 
-                  for startPoint in range(0,(listSize-days-1)):
+                  for startPoint in range(0,(listSize-days)):
                     compareData = []; 
+                    
+                    # below is for price's estimation
+                    reserveData = [0.0, 0.0, 0.0];
+                    for index in range((startPoint-3),(startPoint)):
+                        if (index < 0):
+                           reserveData[index-startPoint+3] = 0.0
+                        else:
+                           stockDetail = tickerList[index].split(',')
+                           reserveData[index-startPoint+3] =(float(stockDetail[6]))
+                        
+                    # start to compute similarity
                     for stock in tickerList[startPoint:(startPoint+days)]:
                         stockDetail = stock.split(',')
                         compareData.append(float(stockDetail[6]))
                     #similarity = normalCosine(sample, compareData)
                     if mode=="pearson":
                        similarity = pearson(sample, compareData)
+                    elif mode.startswith("zhang"):
+                       similarity = zhangdie(sample, compareData)
                     elif mode.startswith("cos"):
                        similarity = normalCosine(sample, compareData)
                     else:
                        similarity = percentCosineByUser(sample, compareData)
                     
                     _task_compare_counter = _task_compare_counter + 1
-   
                     if minSimilarity < similarity:
                        finalDate = (tickerList[startPoint].split(',',1))[0]
                        finalList = compareData
                        finalTicker = (file.split('.',1))[0]
                        
                        newTicker = SimTicker(finalTicker,similarity, finalDate,days)
+                       newTicker.priceList = reserveData + compareData
                        simTickerList.append(newTicker)
                        heapSortBuild(simTickerList, 0, len(simTickerList)-1)                       
                        
@@ -308,7 +348,21 @@ def stockTopSimilarity(ticker_symbol, start, days, n, mode):
       #print ticker_symbol, (finalTicker.split('.',1))[0]
       #showSimilarity(sample, finalList)
     print "-----------------------------------------\n"
+    return simTickerList
 
+def priceEstimation(simList):
+    sumPrice = 0.0 
+    sumSim   = 0.0
+    print len(simList)
+    for day in range(0,3):
+      for simTicker in simList[0: (len(simList))]:
+          sumPrice = sumPrice + simTicker.similarity * (simTicker.priceList[2-day]-simTicker.priceList[3-day])/simTicker.priceList[3-day] 
+          sumSim = sumSim + simTicker.similarity
+          #print sumPrice, sumSim, simTicker.similarity, simTicker.priceList[2], simTicker.priceList[3]
+      print "Day-%d "%day," Estimated Price Rate: %+1.2f"%((sumPrice/sumSim)*100)    
+        
 
-             
+def stockPossiblePrice(ticker_symbol, start, days, n, mode):
+    simList = stockTopSimilarity(ticker_symbol, start, days, n, mode)
+    priceEstimation(simList)         
                     
